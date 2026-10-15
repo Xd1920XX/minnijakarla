@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minni & Karla pulmapildid</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #faf7f2; color: #2a2a2a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  header { text-align: center; padding: 32px 16px 20px; }
+  header h1 { font-weight: 300; font-size: clamp(1.6rem, 5vw, 2.4rem); letter-spacing: 0.5px; }
+  header p { margin-top: 8px; color: #777; font-size: 0.95rem; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px;
+    padding: 12px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+  @media (min-width: 640px) { .grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; padding: 16px; } }
+  @media (min-width: 1024px) { .grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; } }
+  .thumb {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: 6px;
+    background: #e8e4de;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    opacity: 0;
+  }
+  .thumb img.loaded { opacity: 1; }
+  .thumb:hover img { transform: scale(1.04); }
+
+  /* Lightbox */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.94);
+    display: none;
+    z-index: 100;
+    touch-action: pan-y;
+  }
+  .lightbox.open { display: flex; flex-direction: column; }
+  .lb-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    color: #fff;
+    font-size: 0.95rem;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .lb-counter { opacity: 0.85; }
+  .lb-actions { display: flex; gap: 8px; }
+  .lb-btn {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+  }
+  .lb-btn:hover { background: rgba(255, 255, 255, 0.22); }
+  .lb-btn svg { width: 18px; height: 18px; }
+  .lb-close { background: transparent; font-size: 1.6rem; padding: 6px 12px; line-height: 1; }
+  .lb-stage {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .lb-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  .lb-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 1.4rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .lb-nav:hover { background: rgba(255, 255, 255, 0.22); }
+  .lb-prev { left: 12px; }
+  .lb-nav:disabled { opacity: 0.25; cursor: default; }
+  .lb-next { right: 12px; }
+  .lb-spinner {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: none;
+  }
+  .lb-spinner.show { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 600px) {
+    .lb-btn { padding: 10px 12px; font-size: 0.85rem; }
+    .lb-btn span.label { display: none; }
+    .lb-nav { width: 40px; height: 40px; }
+  }
+
+  footer { text-align: center; padding: 24px 16px 40px; color: #999; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Minni & Karla pulmapildid</h1>
+  <p>Vajuta pildile, et vaadata suuremalt ja laadida alla HD kvaliteedis.</p>
+</header>
+
+<main class="grid" id="grid"></main>
+
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <div class="lb-top">
+    <button class="lb-btn lb-close" id="lbClose" aria-label="Sulge">&times;</button>
+    <div class="lb-counter" id="lbCounter"></div>
+    <div class="lb-actions">
+      <a class="lb-btn" id="lbDownload" download>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span class="label">Laadi alla HD</span>
+      </a>
+    </div>
+  </div>
+  <div class="lb-stage" id="lbStage">
+    <button class="lb-nav lb-prev" id="lbPrev" aria-label="Eelmine">&#8249;</button>
+    <div class="lb-spinner" id="lbSpinner"></div>
+    <img class="lb-img" id="lbImg" alt="">
+    <button class="lb-nav lb-next" id="lbNext" aria-label="Järgmine">&#8250;</button>
+  </div>
+</div>
+
+<footer>232 pilti &middot; originaalkvaliteet</footer>
+
+<script>
+  const TOTAL = 232;
+  const DIR = 'pildid/';
+  const grid = document.getElementById('grid');
+
+  // Build grid with lazy-loaded thumbs (browser handles sizing — originals load on-demand)
+  for (let i = 1; i <= TOTAL; i++) {
+    const src = DIR + 'pulm' + i + '.jpg';
+    const cell = document.createElement('div');
+    cell.className = 'thumb';
+    cell.dataset.index = i;
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.src = src;
+    img.alt = 'Pulmapilt ' + i;
+    img.addEventListener('load', () => img.classList.add('loaded'));
+    cell.appendChild(img);
+    cell.addEventListener('click', () => openLightbox(i));
+    grid.appendChild(cell);
+  }
+
+  // Lightbox
+  const lb = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lbImg');
+  const lbCounter = document.getElementById('lbCounter');
+  const lbDownload = document.getElementById('lbDownload');
+  const lbPrev = document.getElementById('lbPrev');
+  const lbNext = document.getElementById('lbNext');
+  const lbClose = document.getElementById('lbClose');
+  const lbSpinner = document.getElementById('lbSpinner');
+  let current = 1;
+
+  function openLightbox(i) {
+    current = i;
+    showImage();
+    lb.classList.add('open');
+    lb.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    lb.classList.remove('open');
+    lb.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    lbImg.src = '';
+  }
+
+  function showImage() {
+    const src = DIR + 'pulm' + current + '.jpg';
+    lbSpinner.classList.add('show');
+    lbImg.style.opacity = '0';
+    lbImg.onload = () => {
+      lbSpinner.classList.remove('show');
+      lbImg.style.opacity = '1';
+    };
+    lbImg.src = src;
+    lbImg.alt = 'Pulmapilt ' + current;
+    lbCounter.textContent = current + ' / ' + TOTAL;
+    lbDownload.href = src;
+    lbDownload.setAttribute('download', 'pulm' + current + '.jpg');
+    lbPrev.disabled = current === 1;
+    lbNext.disabled = current === TOTAL;
+    preload(current + 1);
+    preload(current - 1);
+  }
+
+  function preload(i) {
+    if (i < 1 || i > TOTAL) return;
+    const img = new Image();
+    img.src = DIR + 'pulm' + i + '.jpg';
+  }
+
+  function next() { if (current < TOTAL) { current++; showImage(); } }
+  function prev() { if (current > 1) { current--; showImage(); } }
+
+  lbClose.addEventListener('click', closeLightbox);
+  lbNext.addEventListener('click', next);
+  lbPrev.addEventListener('click', prev);
+
+  // Click background to close
+  lb.addEventListener('click', (e) => {
+    if (e.target === lb || e.target.id === 'lbStage') closeLightbox();
+  });
+
+  // Keyboard
+  document.addEventListener('keydown', (e) => {
+    if (!lb.classList.contains('open')) return;
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowRight') next();
+    else if (e.key === 'ArrowLeft') prev();
+  });
+
+  // Touch swipe on mobile
+  let touchStartX = 0, touchStartY = 0, touchActive = false;
+  lb.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchActive = true;
+  }, { passive: true });
+  lb.addEventListener('touchend', (e) => {
+    if (!touchActive) return;
+    touchActive = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) next(); else prev();
+    }
+  }, { passive: true });
+</script>
+
+</body>
+</html>
